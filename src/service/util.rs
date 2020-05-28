@@ -1,6 +1,9 @@
+use std::convert::Infallible;
 use std::error::Error as StdError;
 use std::fmt;
 use std::marker::PhantomData;
+
+use futures_util::future;
 
 use crate::body::HttpBody;
 use crate::common::{task, Future, Poll};
@@ -35,11 +38,23 @@ where
     }
 }
 
-/// Service returned by [`service_fn`]
+/// Create a `Service` that responds by cloning the value.
+pub fn shared<T>(value: T) -> Shared<T> {
+    Shared { value }
+}
+
+// Service returned by [`service_fn`]
 pub struct ServiceFn<F, R> {
     f: F,
     _req: PhantomData<fn(R)>,
 }
+
+#[derive(Debug, Clone)]
+pub struct Shared<T> {
+    value: T,
+}
+
+// ===== impl ServiceFn =====
 
 impl<F, ReqBody, Ret, ResBody, E> tower_service::Service<crate::Request<ReqBody>>
     for ServiceFn<F, ReqBody>
@@ -82,3 +97,22 @@ where
 }
 
 impl<F, R> Copy for ServiceFn<F, R> where F: Copy {}
+
+// ===== impl Shared =====
+
+impl<T, Req> tower_service::Service<Req> for Shared<T>
+where
+    T: Clone,
+{
+    type Response = T;
+    type Error = Infallible;
+    type Future = future::Ready<Result<Self::Response, Self::Error>>;
+
+    fn poll_ready(&mut self, _cx: &mut task::Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, _: Req) -> Self::Future {
+        future::ok(self.value.clone())
+    }
+}
