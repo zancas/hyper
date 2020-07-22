@@ -95,7 +95,6 @@ incremental = false
 [[example]]
 name = "client"
 path = "examples/client.rs"
-required-features = ["runtime"]
 
 [[example]]
 name = "client_json"
