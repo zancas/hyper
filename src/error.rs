@@ -362,7 +362,7 @@ impl StdError for Error {
     }
 }
 
-#[doc(hidden)]
+
 impl From<Parse> for Error {
     fn from(err: Parse) -> Error {
         Error::new(Kind::Parse(err))
@@ -407,9 +407,9 @@ impl From<http::uri::InvalidUriParts> for Parse {
     }
 }
 
-#[doc(hidden)]
+
 trait AssertSendSync: Send + Sync + 'static {}
-#[doc(hidden)]
+
 impl AssertSendSync for Error {}
 
 // ===== impl TimedOut ====

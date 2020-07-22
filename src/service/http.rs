@@ -19,10 +19,10 @@ pub trait HttpService<ReqBody>: sealed::Sealed<ReqBody> {
     /// The `Future` returned by this `Service`.
     type Future: Future<Output = Result<Response<Self::ResBody>, Self::Error>>;
 
-    #[doc(hidden)]
+    
     fn poll_ready(&mut self, cx: &mut task::Context<'_>) -> Poll<Result<(), Self::Error>>;
 
-    #[doc(hidden)]
+    
     fn call(&mut self, req: Request<ReqBody>) -> Self::Future;
 }
 

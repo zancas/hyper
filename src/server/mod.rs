@@ -271,7 +271,7 @@ impl<I, E> Builder<I, E> {
     //
     // This isn't really desirable in most cases, only really being useful in
     // silly pipeline benchmarks.
-    #[doc(hidden)]
+    
     pub fn http1_pipeline_flush(mut self, val: bool) -> Self {
         self.protocol.pipeline_flush(val);
         self

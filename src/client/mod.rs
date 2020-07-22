@@ -901,7 +901,7 @@ impl Default for Builder {
 }
 
 impl Builder {
-    #[doc(hidden)]
+    
     #[deprecated(
         note = "name is confusing, to disable the connection pool, call pool_max_idle_per_host(0)"
     )]
@@ -918,7 +918,7 @@ impl Builder {
         }
     }
 
-    #[doc(hidden)]
+    
     #[deprecated(note = "renamed to `pool_idle_timeout`")]
     pub fn keep_alive_timeout<D>(&mut self, val: D) -> &mut Self
     where
@@ -940,7 +940,7 @@ impl Builder {
         self
     }
 
-    #[doc(hidden)]
+    
     #[deprecated(note = "renamed to `pool_max_idle_per_host`")]
     pub fn max_idle_per_host(&mut self, max_idle: usize) -> &mut Self {
         self.pool_config.max_idle_per_host = max_idle;

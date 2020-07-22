@@ -259,9 +259,9 @@ pub(super) mod sealed {
     // The `Sized` bound is to prevent creating `dyn Connect`, since they cannot
     // fit the `Connect` bounds because of the blanket impl for `Service`.
     pub trait Connect: Sealed + Sized {
-        #[doc(hidden)]
+        
         type _Svc: ConnectSvc;
-        #[doc(hidden)]
+        
         fn connect(self, internal_only: Internal, dst: Uri) -> <Self::_Svc as ConnectSvc>::Future;
     }
 

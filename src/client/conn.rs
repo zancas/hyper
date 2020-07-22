@@ -690,10 +690,10 @@ where
 trait AssertSend: Send {}
 trait AssertSendSync: Send + Sync {}
 
-#[doc(hidden)]
+
 impl<B: Send> AssertSendSync for SendRequest<B> {}
 
-#[doc(hidden)]
+
 impl<T: Send, B: Send> AssertSend for Connection<T, B>
 where
     T: AsyncRead + AsyncWrite + Send + 'static,
@@ -702,7 +702,7 @@ where
 {
 }
 
-#[doc(hidden)]
+
 impl<T: Send + Sync, B: Send + Sync> AssertSendSync for Connection<T, B>
 where
     T: AsyncRead + AsyncWrite + Send + 'static,
@@ -711,8 +711,8 @@ where
 {
 }
 
-#[doc(hidden)]
+
 impl AssertSendSync for Builder {}
 
-#[doc(hidden)]
+
 impl AssertSend for ResponseFuture {}

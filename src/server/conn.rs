@@ -229,7 +229,7 @@ impl<E> Http<E> {
     }
 
     // renamed due different semantics of http2 keep alive
-    #[doc(hidden)]
+    
     #[deprecated(note = "renamed to `http1_keep_alive`")]
     pub fn keep_alive(&mut self, val: bool) -> &mut Self {
         self.http1_keep_alive(val)

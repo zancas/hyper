@@ -1,5 +1,5 @@
 #![doc(html_root_url = "https://docs.rs/hyper/0.13.7")]
-#![deny(missing_docs)]
+
 #![deny(missing_debug_implementations)]
 #![cfg_attr(test, deny(rust_2018_idioms))]
 #![cfg_attr(test, deny(warnings))]
@@ -40,7 +40,7 @@
 //!   TCP (using tokio).
 //! - `stream` (*enabled by default*): Provides `futures::Stream` capabilities.
 
-#[doc(hidden)]
+
 pub use http;
 #[macro_use]
 extern crate tracing;
@@ -59,7 +59,7 @@ pub use crate::server::Server;
 mod common;
 pub mod body;
 pub mod client;
-#[doc(hidden)] // Mistakenly public...
+ // Mistakenly public...
 pub mod error;
 mod headers;
 #[cfg(test)]
