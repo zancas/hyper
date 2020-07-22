@@ -1,9 +1,9 @@
-#![deny(warnings)]
 #![warn(rust_2018_idioms)]
 use std::env;
 
-use hyper::{body::HttpBody as _, Client};
+use hyper::{Uri, body::HttpBody as _, Client};
 use tokio::io::{self, AsyncWriteExt as _};
+use tower_service::Service;
 
 // A simple type alias so as to DRY.
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -33,8 +33,14 @@ async fn main() -> Result<()> {
 }
 
 async fn fetch_url(url: hyper::Uri) -> Result<()> {
-    let client = Client::new();
+    use std::time::Duration;
 
+    let client = Client::builder()
+        .pool_idle_timeout(Duration::from_secs(30))
+        .http2_only(true)
+        .build();
+
+    /*
     let mut res = client.get(url).await?;
 
     println!("Response: {}", res.status());
@@ -46,7 +52,7 @@ async fn fetch_url(url: hyper::Uri) -> Result<()> {
         let chunk = next?;
         io::stdout().write_all(&chunk).await?;
     }
-
+    */
     println!("\n\nDone!");
 
     Ok(())
