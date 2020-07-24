@@ -9,12 +9,12 @@ type Counter = i32;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let addr = ([127, 0, 0, 1], 3000).into();
+    //    let addr = ([127, 0, 0, 1], 3000).into();
 
-    let server = Server::bind(&addr).serve(MakeSvc { counter: 81818 });
-    println!("Listening on http://{}", addr);
+    //    let server = Server::bind(&addr).serve(MakeSvc { counter: 81818 });
+    //    println!("Listening on http://{}", addr);
 
-    server.await?;
+    //    server.await?;
     Ok(())
 }
 

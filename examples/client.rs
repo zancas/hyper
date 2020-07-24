@@ -1,15 +1,22 @@
 #![warn(rust_2018_idioms)]
-use std::env;
+use core::{
+    ops::Deref,
+    task::{Context, Poll},
+};
+use std::{boxed::Box, env, error::Error as StdError, pin::Pin};
 
-use hyper::{Uri, body::HttpBody as _, Client};
-use tokio::io::{self, AsyncWriteExt as _};
+use hyper::{
+    body::HttpBody as _,
+    client::connect::{Connected, Connection},
+    Client, Uri,
+};
+use tokio::io::{self, AsyncRead, AsyncWrite, AsyncWriteExt as _, Error};
 use tower_service::Service;
 
 // A simple type alias so as to DRY.
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), Box<dyn StdError + Send + Sync>> {
     pretty_env_logger::init();
 
     // Some simple CLI args requirements...
@@ -32,13 +39,65 @@ async fn main() -> Result<()> {
     fetch_url(url).await
 }
 
-async fn fetch_url(url: hyper::Uri) -> Result<()> {
+async fn fetch_url(url: hyper::Uri) -> Result<(), Box<dyn StdError + Send + Sync>> {
     use std::time::Duration;
+
+    struct LocalConnection(Vec<u8>);
+
+    impl AsyncRead for LocalConnection {
+        fn poll_read(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            buf: &mut [u8],
+        ) -> Poll<io::Result<usize>> {
+            <Box<&[u8]> as AsyncRead>::poll_read(
+                Pin::new(&mut Box::new(self.0.as_slice())),
+                _cx,
+                buf,
+            )
+        }
+    }
+
+    impl AsyncWrite for LocalConnection {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            cx: &mut Context,
+            buf: &[u8],
+        ) -> Poll<Result<usize, Error>> {
+            <Box<Vec<u8>> as AsyncWrite>::poll_write(
+                Pin::new(&mut Box::new(self.0.clone())),
+                cx,
+                buf,
+            )
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<(), Error>> {
+            <Box<Vec<u8>> as AsyncWrite>::poll_flush(Pin::new(&mut Box::new(self.0.clone())), cx)
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<(), Error>> {
+            <Box<Vec<u8>> as AsyncWrite>::poll_shutdown(Pin::new(&mut Box::new(self.0.clone())), cx)
+        }
+    }
+
+    impl Connection for LocalConnection {
+        fn connected(&self) -> Connected {
+            Connected::new()
+        }
+    }
+
+    struct LocalConnect;
+
+    //    impl Service<Uri> for LocalConnect {
+    //        type Response = LocalConnection;
+    //        type Error = Box<dyn std::error::Error + Send + Sync>;
+    //        type Future = ResponseFuture;
+    //    }
 
     let client = Client::builder()
         .pool_idle_timeout(Duration::from_secs(30))
         .http2_only(true)
-        .build();
+/*        .build()*/;
 
     /*
     let mut res = client.get(url).await?;
