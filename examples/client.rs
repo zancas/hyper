@@ -52,11 +52,7 @@ async fn fetch_url(
             _cx: &mut Context<'_>,
             buf: &mut [u8],
         ) -> Poll<io::Result<usize>> {
-            <Box<&[u8]> as AsyncRead>::poll_read(
-                Pin::new(&mut Box::new(self.0.as_slice())),
-                _cx,
-                buf,
-            )
+            Pin::new(&mut Box::new(self.0.as_slice())).poll_read(_cx, buf)
         }
     }
 
@@ -66,31 +62,21 @@ async fn fetch_url(
             cx: &mut Context,
             buf: &[u8],
         ) -> Poll<Result<usize, Error>> {
-            <Box<Vec<u8>> as AsyncWrite>::poll_write(
-                Pin::new(&mut Box::new(self.0.clone())),
-                cx,
-                buf,
-            )
+            Pin::new(&mut Box::new(self.0.clone())).poll_write(cx, buf)
         }
 
         fn poll_flush(
             self: Pin<&mut Self>,
             cx: &mut Context,
         ) -> Poll<Result<(), Error>> {
-            <Box<Vec<u8>> as AsyncWrite>::poll_flush(
-                Pin::new(&mut Box::new(self.0.clone())),
-                cx,
-            )
+            Pin::new(&mut Box::new(self.0.clone())).poll_flush(cx)
         }
 
         fn poll_shutdown(
             self: Pin<&mut Self>,
             cx: &mut Context,
         ) -> Poll<Result<(), Error>> {
-            <Box<Vec<u8>> as AsyncWrite>::poll_shutdown(
-                Pin::new(&mut Box::new(self.0.clone())),
-                cx,
-            )
+            Pin::new(&mut Box::new(self.0.clone())).poll_shutdown(cx)
         }
     }
 
