@@ -39,7 +39,9 @@ async fn main() -> Result<(), Box<dyn StdError + Send + Sync>> {
     fetch_url(url).await
 }
 
-async fn fetch_url(url: hyper::Uri) -> Result<(), Box<dyn StdError + Send + Sync>> {
+async fn fetch_url(
+    url: hyper::Uri,
+) -> Result<(), Box<dyn StdError + Send + Sync>> {
     use std::time::Duration;
 
     struct LocalConnection(Vec<u8>);
@@ -71,12 +73,24 @@ async fn fetch_url(url: hyper::Uri) -> Result<(), Box<dyn StdError + Send + Sync
             )
         }
 
-        fn poll_flush(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<(), Error>> {
-            <Box<Vec<u8>> as AsyncWrite>::poll_flush(Pin::new(&mut Box::new(self.0.clone())), cx)
+        fn poll_flush(
+            self: Pin<&mut Self>,
+            cx: &mut Context,
+        ) -> Poll<Result<(), Error>> {
+            <Box<Vec<u8>> as AsyncWrite>::poll_flush(
+                Pin::new(&mut Box::new(self.0.clone())),
+                cx,
+            )
         }
 
-        fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<(), Error>> {
-            <Box<Vec<u8>> as AsyncWrite>::poll_shutdown(Pin::new(&mut Box::new(self.0.clone())), cx)
+        fn poll_shutdown(
+            self: Pin<&mut Self>,
+            cx: &mut Context,
+        ) -> Poll<Result<(), Error>> {
+            <Box<Vec<u8>> as AsyncWrite>::poll_shutdown(
+                Pin::new(&mut Box::new(self.0.clone())),
+                cx,
+            )
         }
     }
 
