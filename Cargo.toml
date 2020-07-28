@@ -54,6 +54,9 @@ tokio-test = "0.2"
 tokio-util = { version = "0.3", features = ["codec"] }
 tower-util = "0.3"
 url = "1.0"
+web-sys = "0.3.42"
+wasm-bindgen = "0.2.65"
+wasm-bindgen-futures = "0.4.15"
 
 [features]
 default = [

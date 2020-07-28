@@ -1,5 +1,6 @@
 #![warn(rust_2018_idioms)]
 use core::{
+    future::Future,
     ops::Deref,
     task::{Context, Poll},
 };
@@ -8,10 +9,12 @@ use std::{boxed::Box, env, error::Error as StdError, pin::Pin};
 use hyper::{
     body::HttpBody as _,
     client::connect::{Connected, Connection},
-    Client, Uri,
+    Body, Client, Request, Uri,
 };
 use tokio::io::{self, AsyncRead, AsyncWrite, AsyncWriteExt as _, Error};
 use tower_service::Service;
+use wasm_bindgen_futures::JsFuture;
+use web_sys::Request;
 
 // A simple type alias so as to DRY.
 
@@ -86,13 +89,57 @@ async fn fetch_url(
         }
     }
 
+    struct LocalFuture<T> {
+        value: T,
+    }
+
+    impl Future for LocalFuture<T> {
+        type Output = Result<LocalConnection, Box<dyn StdError + Send + Sync>>;
+
+        fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+            unimplemented!()
+        }
+    }
+
     struct LocalConnect;
 
-    //    impl Service<Uri> for LocalConnect {
-    //        type Response = LocalConnection;
-    //        type Error = Box<dyn std::error::Error + Send + Sync>;
-    //        type Future = ResponseFuture;
-    //    }
+    impl Service<Uri> for LocalConnect {
+        type Response = LocalConnection;
+        type Error = Box<dyn std::error::Error + Send + Sync>;
+        type Future = LocalFuture;
+
+        fn poll_ready(
+            &mut self,
+            cx: &mut Context,
+        ) -> Poll<Result<(), Self::Error>> {
+            unimplemented!()
+        }
+
+        fn call(&mut self, dst: Uri) -> Self::Future {
+            async {
+                match JsFuture::from(
+                    web_sys::window()
+                        .unwrap()
+                        .fetch_with_request(&Request::new_with_str(dts.path())),
+                )
+                .await
+                {
+                    Ok(m) => match m.dyn_into().status() {
+                        200..299 => {
+                            LocalFuture(Ok(LocalConnection(Vec::new())))
+                        }
+                        e @ _ => LocalFuture(Err(parse!("Error code: {}", e))),
+                    },
+                    Err(e) => LocalFuture(Err(e)),
+                }
+            }
+
+            //let response = match get_response(dst).await {
+            //    Ok(res) => res,
+            //    Err(e) => return LocalFuture { Err(e) },
+            //}
+        }
+    }
 
     let client = Client::builder()
         .pool_idle_timeout(Duration::from_secs(30))
@@ -115,4 +162,16 @@ async fn fetch_url(
     println!("\n\nDone!");
 
     Ok(())
+}
+
+async fn get_response(url: Uri) -> Result<String, JsValue> {
+    let request = Request::new_with_str(dst.path());
+    let response =
+        JsFuture::from(web_sys::window().unwrap().fetch_with_request(&request))
+            .await?
+            .dyn_into::<Response>()
+            .unwrap();
+    JsFuture::from(response.json())
+        .await?
+        .into_serde::<String>()?
 }
