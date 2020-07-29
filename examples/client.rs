@@ -5,6 +5,7 @@ use core::{
     task::{Context, Poll},
 };
 use futures_executor::block_on;
+use futures_util::future::{ready, Ready};
 use serde::{Deserialize, Serialize};
 use std::{boxed::Box, env, error::Error as StdError, pin::Pin};
 
@@ -93,35 +94,36 @@ async fn fetch_url(url: hyper::Uri) -> Result<(), Box<StdErr>> {
 
     //    impl Unpin for LocalFuture {}
 
-    struct LocalFuture(Result<LocalConnection, Box<StdErr>>);
+    //    struct LocalFuture(Result<LocalConnection, Box<StdErr>>);
 
-    impl Future for LocalFuture {
-        type Output = Result<LocalConnection, Box<StdErr>>;
+    //    impl Future for LocalFuture {
+    //        type Output = Result<LocalConnection, Box<StdErr>>;
+    //
+    //        fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    //            Poll::Ready(match &self.0 {
+    //                Ok(x) => Ok(x.clone()),
+    //                Err(e) => Err(<Box<StdErr>>::from(e.to_string())),
+    //            })
+    //        }
+    //    }
 
-        fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-            Poll::Ready(match &self.0 {
-                Ok(x) => Ok(x.clone()),
-                Err(e) => Err(<Box<StdErr>>::from(e.to_string())),
-            })
-        }
-    }
-
+    #[derive(Clone)]
     struct LocalConnect;
 
     impl Service<Uri> for LocalConnect {
         type Response = LocalConnection;
         type Error = Box<StdErr>;
-        type Future = LocalFuture;
+        type Future = Ready<Result<LocalConnection, Box<StdErr>>>;
 
         fn poll_ready(
             &mut self,
             cx: &mut Context,
         ) -> Poll<Result<(), Self::Error>> {
-            unimplemented!()
+            Poll::Ready(Ok(()))
         }
 
         fn call(&mut self, dst: Uri) -> Self::Future {
-            LocalFuture(block_on(async {
+            ready(block_on(async {
                 match JsFuture::from(
                     web_sys::window().unwrap().fetch_with_request(
                         &WebRequest::new_with_str(dst.path()).ok().unwrap(),
@@ -139,20 +141,19 @@ async fn fetch_url(url: hyper::Uri) -> Result<(), Box<StdErr>> {
                     Err(e) => Err(<Box<StdErr>>::from(e.as_string().unwrap())),
                 }
             }))
-
-            //let response = match get_response(dst).await {
-            //    Ok(res) => res,
-            //    Err(e) => return LocalFuture { Err(e) },
-            //}
         }
     }
+
+    //let response = match get_response(dst).await {
+    //    Ok(res) => res,
+    //    Err(e) => return LocalFuture { Err(e) },
+    //}
 
     let client = Client::builder()
         .pool_idle_timeout(Duration::from_secs(30))
         .http2_only(true)
-/*        .build()*/;
+        .build::<_, Body>(LocalConnect);
 
-    /*
     let mut res = client.get(url).await?;
 
     println!("Response: {}", res.status());
@@ -164,7 +165,7 @@ async fn fetch_url(url: hyper::Uri) -> Result<(), Box<StdErr>> {
         let chunk = next?;
         io::stdout().write_all(&chunk).await?;
     }
-    */
+
     println!("\n\nDone!");
 
     Ok(())
