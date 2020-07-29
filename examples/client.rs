@@ -4,6 +4,8 @@ use core::{
     ops::Deref,
     task::{Context, Poll},
 };
+use futures_executor::block_on;
+use serde::{Deserialize, Serialize};
 use std::{boxed::Box, env, error::Error as StdError, pin::Pin};
 
 use hyper::{
@@ -13,10 +15,9 @@ use hyper::{
 };
 use tokio::io::{self, AsyncRead, AsyncWrite, AsyncWriteExt as _, Error};
 use tower_service::Service;
+use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
-use web_sys::Request;
-
-// A simple type alias so as to DRY.
+use web_sys::{Request as WebRequest, Response};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn StdError + Send + Sync>> {
@@ -44,7 +45,7 @@ async fn main() -> Result<(), Box<dyn StdError + Send + Sync>> {
 
 async fn fetch_url(
     url: hyper::Uri,
-) -> Result<(), Box<dyn StdError + Send + Sync>> {
+) -> Result<(), Box<dyn StdError + Send + Sync + 'static>> {
     use std::time::Duration;
 
     struct LocalConnection(Vec<u8>);
@@ -89,15 +90,18 @@ async fn fetch_url(
         }
     }
 
-    struct LocalFuture<T> {
-        value: T,
-    }
+    impl Unpin for LocalFuture {}
 
-    impl Future for LocalFuture<T> {
-        type Output = Result<LocalConnection, Box<dyn StdError + Send + Sync>>;
+    struct LocalFuture(
+        Result<LocalConnection, Box<dyn StdError + Send + Sync + 'static>>,
+    );
+
+    impl Future for LocalFuture {
+        type Output =
+            Result<LocalConnection, Box<dyn StdError + Send + Sync + 'static>>;
 
         fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-            unimplemented!()
+            Poll::Ready(self.0)
         }
     }
 
@@ -105,7 +109,7 @@ async fn fetch_url(
 
     impl Service<Uri> for LocalConnect {
         type Response = LocalConnection;
-        type Error = Box<dyn std::error::Error + Send + Sync>;
+        type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
         type Future = LocalFuture;
 
         fn poll_ready(
@@ -116,23 +120,29 @@ async fn fetch_url(
         }
 
         fn call(&mut self, dst: Uri) -> Self::Future {
-            async {
+            LocalFuture(block_on(async {
                 match JsFuture::from(
-                    web_sys::window()
-                        .unwrap()
-                        .fetch_with_request(&Request::new_with_str(dts.path())),
+                    web_sys::window().unwrap().fetch_with_request(
+                        &WebRequest::new_with_str(dst.path()).ok().unwrap(),
+                    ),
                 )
                 .await
                 {
-                    Ok(m) => match m.dyn_into().status() {
-                        200..299 => {
-                            LocalFuture(Ok(LocalConnection(Vec::new())))
-                        }
-                        e @ _ => LocalFuture(Err(parse!("Error code: {}", e))),
+                    Ok(m) => match m.dyn_into::<Response>().unwrap().status() {
+                        200..=299 => Ok(LocalConnection(Vec::new())),
+                        e @ _ => Err(
+                            <Box<dyn StdError + Send + Sync + 'static>>::from(
+                                format!("Error code: {}", e),
+                            ),
+                        ),
                     },
-                    Err(e) => LocalFuture(Err(e)),
+                    Err(e) => {
+                        Err(<Box<dyn StdError + Send + Sync + 'static>>::from(
+                            e.as_string().unwrap(),
+                        ))
+                    }
                 }
-            }
+            }))
 
             //let response = match get_response(dst).await {
             //    Ok(res) => res,
@@ -164,14 +174,12 @@ async fn fetch_url(
     Ok(())
 }
 
-async fn get_response(url: Uri) -> Result<String, JsValue> {
-    let request = Request::new_with_str(dst.path());
+async fn get_response(url: Uri) -> Result<JsValue, JsValue> {
+    let request = WebRequest::new_with_str(url.path())?;
     let response =
         JsFuture::from(web_sys::window().unwrap().fetch_with_request(&request))
             .await?
             .dyn_into::<Response>()
             .unwrap();
-    JsFuture::from(response.json())
-        .await?
-        .into_serde::<String>()?
+    JsFuture::from(response.json()?).await
 }
