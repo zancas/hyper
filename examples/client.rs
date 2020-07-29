@@ -19,8 +19,10 @@ use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{Request as WebRequest, Response};
 
+type StdErr = dyn StdError + Send + Sync + 'static;
+
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn StdError + Send + Sync>> {
+async fn main() -> Result<(), Box<StdErr>> {
     pretty_env_logger::init();
 
     // Some simple CLI args requirements...
@@ -43,11 +45,10 @@ async fn main() -> Result<(), Box<dyn StdError + Send + Sync>> {
     fetch_url(url).await
 }
 
-async fn fetch_url(
-    url: hyper::Uri,
-) -> Result<(), Box<dyn StdError + Send + Sync + 'static>> {
+async fn fetch_url(url: hyper::Uri) -> Result<(), Box<StdErr>> {
     use std::time::Duration;
 
+    #[derive(Clone)]
     struct LocalConnection(Vec<u8>);
 
     impl AsyncRead for LocalConnection {
@@ -90,18 +91,18 @@ async fn fetch_url(
         }
     }
 
-    impl Unpin for LocalFuture {}
+    //    impl Unpin for LocalFuture {}
 
-    struct LocalFuture(
-        Result<LocalConnection, Box<dyn StdError + Send + Sync + 'static>>,
-    );
+    struct LocalFuture(Result<LocalConnection, Box<StdErr>>);
 
     impl Future for LocalFuture {
-        type Output =
-            Result<LocalConnection, Box<dyn StdError + Send + Sync + 'static>>;
+        type Output = Result<LocalConnection, Box<StdErr>>;
 
         fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-            Poll::Ready(self.0)
+            Poll::Ready(match &self.0 {
+                Ok(x) => Ok(x.clone()),
+                Err(e) => Err(<Box<StdErr>>::from(e.to_string())),
+            })
         }
     }
 
@@ -109,7 +110,7 @@ async fn fetch_url(
 
     impl Service<Uri> for LocalConnect {
         type Response = LocalConnection;
-        type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
+        type Error = Box<StdErr>;
         type Future = LocalFuture;
 
         fn poll_ready(
@@ -130,17 +131,12 @@ async fn fetch_url(
                 {
                     Ok(m) => match m.dyn_into::<Response>().unwrap().status() {
                         200..=299 => Ok(LocalConnection(Vec::new())),
-                        e @ _ => Err(
-                            <Box<dyn StdError + Send + Sync + 'static>>::from(
-                                format!("Error code: {}", e),
-                            ),
-                        ),
+                        e @ _ => Err(<Box<StdErr>>::from(format!(
+                            "Error code: {}",
+                            e
+                        ))),
                     },
-                    Err(e) => {
-                        Err(<Box<dyn StdError + Send + Sync + 'static>>::from(
-                            e.as_string().unwrap(),
-                        ))
-                    }
+                    Err(e) => Err(<Box<StdErr>>::from(e.as_string().unwrap())),
                 }
             }))
 
