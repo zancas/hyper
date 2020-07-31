@@ -41,6 +41,7 @@ want = "0.3"
 socket2 = { version = "0.3", optional = true }
 
 [dev-dependencies]
+console_error_panic_hook = "0.1.6"
 futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
 futures-executor =" 0.3"
 matches = "0.1"
@@ -99,6 +100,7 @@ incremental = false
 [[example]]
 name = "client"
 path = "examples/client.rs"
+crate-type = ["cdylib"]
 
 [[example]]
 name = "client_json"

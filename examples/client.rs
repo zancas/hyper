@@ -16,24 +16,25 @@ use hyper::{
 };
 use tokio::io::{self, AsyncRead, AsyncWrite, AsyncWriteExt as _, Error};
 use tower_service::Service;
-use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen::{prelude::*, JsCast};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{Request as WebRequest, Response};
 
 type StdErr = dyn StdError + Send + Sync + 'static;
 
-#[tokio::main]
-async fn main() -> Result<(), Box<StdErr>> {
-    pretty_env_logger::init();
+#[wasm_bindgen(start)]
+pub async fn start() -> Result<(), JsValue> {
+    console_error_panic_hook::set_once();
 
     // Some simple CLI args requirements...
-    let url = match env::args().nth(1) {
+    let url = "http://127.0.0.1:3030";
+    /*match env::args().nth(1) {
         Some(url) => url,
         None => {
             println!("Usage: client <url>");
             return Ok(());
         }
-    };
+    };*/
 
     // HTTPS requires picking a TLS implementation, so give a better
     // warning if the user tries to request an 'https' URL.
@@ -43,7 +44,10 @@ async fn main() -> Result<(), Box<StdErr>> {
         return Ok(());
     }
 
-    fetch_url(url).await
+    match fetch_url(url).await {
+        Ok(_) => Ok(()),
+        Err(e) => Err(JsValue::from(e.to_string())),
+    }
 }
 
 async fn fetch_url(url: hyper::Uri) -> Result<(), Box<StdErr>> {
