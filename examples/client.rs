@@ -50,11 +50,19 @@ pub async fn start() -> Result<(), JsValue> {
     }
 }
 
+#[derive(Clone)]
+struct ConnectResponse(Vec<u8>);
+
+impl Deref for ConnectResponse {
+    type Target = Vec<u8>;
+
+    fn deref(&self) -> &Self::Target {
+      	&self.0
+    }
+}
+
 async fn fetch_url(url: hyper::Uri) -> Result<(), Box<StdErr>> {
     use std::time::Duration;
-
-    #[derive(Clone)]
-    struct ConnectResponse(Vec<u8>);
 
     impl AsyncRead for ConnectResponse {
         fn poll_read(
@@ -62,7 +70,7 @@ async fn fetch_url(url: hyper::Uri) -> Result<(), Box<StdErr>> {
             _cx: &mut Context<'_>,
             buf: &mut [u8],
         ) -> Poll<io::Result<usize>> {
-            Pin::new(&mut self.0.as_slice()).poll_read(_cx, buf)
+            Pin::new(&mut self.as_slice()).poll_read(_cx, buf)
         }
     }
 
@@ -72,21 +80,21 @@ async fn fetch_url(url: hyper::Uri) -> Result<(), Box<StdErr>> {
             cx: &mut Context,
             buf: &[u8],
         ) -> Poll<Result<usize, Error>> {
-            Pin::new(&mut self.0).poll_write(cx, buf)
+            Pin::new(&mut self).poll_write(cx, buf)
         }
 
         fn poll_flush(
             mut self: Pin<&mut Self>,
             cx: &mut Context,
         ) -> Poll<Result<(), Error>> {
-            Pin::new(&mut self.0).poll_flush(cx)
+            Pin::new(&mut self).poll_flush(cx)
         }
 
         fn poll_shutdown(
             mut self: Pin<&mut Self>,
             cx: &mut Context,
         ) -> Poll<Result<(), Error>> {
-            Pin::new(&mut self.0).poll_shutdown(cx)
+            Pin::new(&mut self).poll_shutdown(cx)
         }
     }
 
