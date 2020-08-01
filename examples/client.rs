@@ -54,9 +54,9 @@ async fn fetch_url(url: hyper::Uri) -> Result<(), Box<StdErr>> {
     use std::time::Duration;
 
     #[derive(Clone)]
-    struct LocalConnection(Vec<u8>);
+    struct ConnectImplConformer(Vec<u8>);
 
-    impl AsyncRead for LocalConnection {
+    impl AsyncRead for ConnectImplConformer {
         fn poll_read(
             self: Pin<&mut Self>,
             _cx: &mut Context<'_>,
@@ -66,7 +66,7 @@ async fn fetch_url(url: hyper::Uri) -> Result<(), Box<StdErr>> {
         }
     }
 
-    impl AsyncWrite for LocalConnection {
+    impl AsyncWrite for ConnectImplConformer {
         fn poll_write(
             self: Pin<&mut Self>,
             cx: &mut Context,
@@ -90,7 +90,7 @@ async fn fetch_url(url: hyper::Uri) -> Result<(), Box<StdErr>> {
         }
     }
 
-    impl Connection for LocalConnection {
+    impl Connection for ConnectImplConformer {
         fn connected(&self) -> Connected {
             Connected::new()
         }
@@ -98,10 +98,10 @@ async fn fetch_url(url: hyper::Uri) -> Result<(), Box<StdErr>> {
 
     //    impl Unpin for LocalFuture {}
 
-    //    struct LocalFuture(Result<LocalConnection, Box<StdErr>>);
+    //    struct LocalFuture(Result<ConnectImplConformer, Box<StdErr>>);
 
     //    impl Future for LocalFuture {
-    //        type Output = Result<LocalConnection, Box<StdErr>>;
+    //        type Output = Result<ConnectImplConformer, Box<StdErr>>;
     //
     //        fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
     //            Poll::Ready(match &self.0 {
@@ -115,9 +115,9 @@ async fn fetch_url(url: hyper::Uri) -> Result<(), Box<StdErr>> {
     struct LocalConnect;
 
     impl Service<Uri> for LocalConnect {
-        type Response = LocalConnection;
+        type Response = ConnectImplConformer;
         type Error = Box<StdErr>;
-        type Future = Ready<Result<LocalConnection, Box<StdErr>>>;
+        type Future = Ready<Result<ConnectImplConformer, Box<StdErr>>>;
 
         fn poll_ready(
             &mut self,
@@ -136,7 +136,7 @@ async fn fetch_url(url: hyper::Uri) -> Result<(), Box<StdErr>> {
                 .await
                 {
                     Ok(m) => match m.dyn_into::<Response>().unwrap().status() {
-                        200..=299 => Ok(LocalConnection(Vec::new())),
+                        200..=299 => Ok(ConnectImplConformer(Vec::new())),
                         e @ _ => Err(<Box<StdErr>>::from(format!(
                             "Error code: {}",
                             e
