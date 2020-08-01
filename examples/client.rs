@@ -54,43 +54,43 @@ async fn fetch_url(url: hyper::Uri) -> Result<(), Box<StdErr>> {
     use std::time::Duration;
 
     #[derive(Clone)]
-    struct ConnectImplConformer(Vec<u8>);
+    struct ConnectResponse(Vec<u8>);
 
-    impl AsyncRead for ConnectImplConformer {
+    impl AsyncRead for ConnectResponse {
         fn poll_read(
-            self: Pin<&mut Self>,
+            mut self: Pin<&mut Self>,
             _cx: &mut Context<'_>,
             buf: &mut [u8],
         ) -> Poll<io::Result<usize>> {
-            Pin::new(&mut Box::new(self.0.as_slice())).poll_read(_cx, buf)
+            Pin::new(&mut self.0.as_slice()).poll_read(_cx, buf)
         }
     }
 
-    impl AsyncWrite for ConnectImplConformer {
+    impl AsyncWrite for ConnectResponse {
         fn poll_write(
-            self: Pin<&mut Self>,
+            mut self: Pin<&mut Self>,
             cx: &mut Context,
             buf: &[u8],
         ) -> Poll<Result<usize, Error>> {
-            Pin::new(&mut Box::new(self.0.clone())).poll_write(cx, buf)
+            Pin::new(&mut self.0).poll_write(cx, buf)
         }
 
         fn poll_flush(
-            self: Pin<&mut Self>,
+            mut self: Pin<&mut Self>,
             cx: &mut Context,
         ) -> Poll<Result<(), Error>> {
-            Pin::new(&mut Box::new(self.0.clone())).poll_flush(cx)
+            Pin::new(&mut self.0).poll_flush(cx)
         }
 
         fn poll_shutdown(
-            self: Pin<&mut Self>,
+            mut self: Pin<&mut Self>,
             cx: &mut Context,
         ) -> Poll<Result<(), Error>> {
-            Pin::new(&mut Box::new(self.0.clone())).poll_shutdown(cx)
+            Pin::new(&mut self.0).poll_shutdown(cx)
         }
     }
 
-    impl Connection for ConnectImplConformer {
+    impl Connection for ConnectResponse {
         fn connected(&self) -> Connected {
             Connected::new()
         }
@@ -98,10 +98,10 @@ async fn fetch_url(url: hyper::Uri) -> Result<(), Box<StdErr>> {
 
     //    impl Unpin for LocalFuture {}
 
-    //    struct LocalFuture(Result<ConnectImplConformer, Box<StdErr>>);
+    //    struct LocalFuture(Result<ConnectResponse, Box<StdErr>>);
 
     //    impl Future for LocalFuture {
-    //        type Output = Result<ConnectImplConformer, Box<StdErr>>;
+    //        type Output = Result<ConnectResponse, Box<StdErr>>;
     //
     //        fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
     //            Poll::Ready(match &self.0 {
@@ -112,12 +112,12 @@ async fn fetch_url(url: hyper::Uri) -> Result<(), Box<StdErr>> {
     //    }
 
     #[derive(Clone)]
-    struct LocalConnect;
+    struct ConnectImplConformer;
 
-    impl Service<Uri> for LocalConnect {
-        type Response = ConnectImplConformer;
+    impl Service<Uri> for ConnectImplConformer {
+        type Response = ConnectResponse;
         type Error = Box<StdErr>;
-        type Future = Ready<Result<ConnectImplConformer, Box<StdErr>>>;
+        type Future = Ready<Result<ConnectResponse, Box<StdErr>>>;
 
         fn poll_ready(
             &mut self,
@@ -136,7 +136,7 @@ async fn fetch_url(url: hyper::Uri) -> Result<(), Box<StdErr>> {
                 .await
                 {
                     Ok(m) => match m.dyn_into::<Response>().unwrap().status() {
-                        200..=299 => Ok(ConnectImplConformer(Vec::new())),
+                        200..=299 => Ok(ConnectResponse(Vec::new())),
                         e @ _ => Err(<Box<StdErr>>::from(format!(
                             "Error code: {}",
                             e
@@ -156,7 +156,7 @@ async fn fetch_url(url: hyper::Uri) -> Result<(), Box<StdErr>> {
     let client = Client::builder()
         .pool_idle_timeout(Duration::from_secs(30))
         .http2_only(true)
-        .build::<_, Body>(LocalConnect);
+        .build::<_, Body>(ConnectImplConformer);
 
     let mut res = client.get(url).await?;
 
